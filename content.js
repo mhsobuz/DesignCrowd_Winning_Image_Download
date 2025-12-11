@@ -26,12 +26,10 @@
             if (!fullImg) continue;
 
             const imgUrl = fullImg.src;
-            const fileName = imgUrl.split("/").pop();
 
             results.push({
                 username: username,
-                imageUrl: imgUrl,
-                filename: `${username}/${fileName}`
+                imageUrl: imgUrl
             });
         }
 
@@ -70,9 +68,26 @@
         }
     }
 
+    // ===== Sequential filenames per username =====
+    const userCounters = {}; // { username: count }
+
+    const sequentialDownloads = uniqueDownloads.map(item => {
+        if (!userCounters[item.username]) userCounters[item.username] = 1;
+
+        const ext = item.imageUrl.split(".").pop().split(/\#|\?/)[0]; // get file extension
+        const filename = `${item.username}/file_${userCounters[item.username]}.${ext}`;
+
+        userCounters[item.username]++;
+
+        return {
+            imageUrl: item.imageUrl,
+            filename: filename
+        };
+    });
+
     chrome.runtime.sendMessage({
         type: "batchDownload",
-        items: uniqueDownloads
+        items: sequentialDownloads
     });
 
 })();
