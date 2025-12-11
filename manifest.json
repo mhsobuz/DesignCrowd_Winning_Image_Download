@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Auto Image Downloader",
+  "version": "1.0",
+  "description": "Download image from page and rename using username.",
+  "permissions": ["downloads", "activeTab", "scripting"],
+  "action": {
+    "default_title": "Download Image"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
