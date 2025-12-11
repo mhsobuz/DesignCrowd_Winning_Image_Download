@@ -1,5 +1,4 @@
 (function () {
-    // Select all design cards
     const cards = document.querySelectorAll(".card-design");
 
     if (!cards.length) {
@@ -16,12 +15,12 @@
         if (!img || !user) return;
 
         const imageUrl = img.src;
-        const username = user.innerText.trim();
+        const username = user.innerText.trim().replace(/\s+/g, "-");
 
         const parts = imageUrl.split("/");
         const originalName = parts[parts.length - 1];
 
-        const finalName = `${username}_${originalName}`;
+        const finalName = `${username}/${originalName}`;
 
         downloads.push({
             imageUrl,
@@ -29,7 +28,6 @@
         });
     });
 
-    // Send all image data to background.js
     chrome.runtime.sendMessage({
         type: "batchDownload",
         items: downloads
