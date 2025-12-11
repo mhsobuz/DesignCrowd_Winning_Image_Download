@@ -59,9 +59,20 @@
         allDownloads.push(...items);
     }
 
+    // ===== Remove duplicates based on imageUrl =====
+    const uniqueDownloads = [];
+    const seenUrls = new Set();
+
+    for (const item of allDownloads) {
+        if (!seenUrls.has(item.imageUrl)) {
+            uniqueDownloads.push(item);
+            seenUrls.add(item.imageUrl);
+        }
+    }
+
     chrome.runtime.sendMessage({
         type: "batchDownload",
-        items: allDownloads
+        items: uniqueDownloads
     });
 
 })();
