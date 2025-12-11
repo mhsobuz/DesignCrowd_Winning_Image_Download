@@ -1,51 +1,67 @@
 (async function () {
-    const cards = document.querySelectorAll(".card-design");
 
-    if (!cards.length) {
-        alert("No design cards found!");
-        return;
+    async function fetchHtml(url) {
+        return await fetch(url).then(r => r.text());
     }
 
-    let downloads = [];
+    async function parseDesignCards(doc) {
+        const cards = doc.querySelectorAll(".card-design");
+        const parser = new DOMParser();
+        let results = [];
 
-    for (const card of cards) {
-        const pageLink = card.querySelector(".card-design__image a");
-        const user = card.querySelector(".user-profile a");
+        for (const card of cards) {
+            const designLink = card.querySelector(".card-design__image a");
+            const userLink = card.querySelector(".user-profile a");
 
-        if (!pageLink || !user) continue;
+            if (!designLink || !userLink) continue;
 
-        const username = user.innerText.trim().replace(/\s+/g, "-");
-        const designPageUrl = pageLink.href;
+            const username = userLink.innerText.trim().replace(/\s+/g, "-");
+            const designUrl = designLink.href;
 
-        // Fetch the design page HTML
-        const html = await fetch(designPageUrl).then(r => r.text());
+            // Fetch design page for HD image
+            const designHtml = await fetchHtml(designUrl);
+            const doc2 = parser.parseFromString(designHtml, "text/html");
 
-        // Parse HTML
+            const fullImg = doc2.querySelector(".image-frame--tall img");
+            if (!fullImg) continue;
+
+            const imgUrl = fullImg.src;
+            const fileName = imgUrl.split("/").pop();
+
+            results.push({
+                username: username,
+                imageUrl: imgUrl,
+                filename: `${username}/${fileName}`
+            });
+        }
+
+        return results;
+    }
+
+    // ===== Collect all pagination links =====
+    const paginationLinks = Array.from(document.querySelectorAll(".pagination li a"))
+        .map(a => a.href)
+        .filter(href => href.includes("contest/4107921")); // Optional: filter by contest
+
+    // Include current page as well
+    const currentPage = window.location.href;
+    if (!paginationLinks.includes(currentPage)) paginationLinks.unshift(currentPage);
+
+    let allDownloads = [];
+
+    for (const pageUrl of paginationLinks) {
+        console.log("Fetching page:", pageUrl);
+        const html = await fetchHtml(pageUrl);
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, "text/html");
 
-        // Extract HD image
-        const hdImg = doc.querySelector(".image-frame--tall img");
-
-        if (!hdImg) continue;
-
-        const hdUrl = hdImg.src;
-
-        // Extract original filename
-        const parts = hdUrl.split("/");
-        const originalName = parts[parts.length - 1];
-
-        const finalName = `${username}/${originalName}`;
-
-        downloads.push({
-            imageUrl: hdUrl,
-            filename: finalName
-        });
+        const items = await parseDesignCards(doc);
+        allDownloads.push(...items);
     }
 
     chrome.runtime.sendMessage({
         type: "batchDownload",
-        items: downloads
+        items: allDownloads
     });
 
 })();
