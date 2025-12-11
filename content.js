@@ -1,4 +1,4 @@
-(function () {
+(async function () {
     const cards = document.querySelectorAll(".card-design");
 
     if (!cards.length) {
@@ -8,25 +8,40 @@
 
     let downloads = [];
 
-    cards.forEach(card => {
-        const img = card.querySelector(".card-design__image img");
+    for (const card of cards) {
+        const pageLink = card.querySelector(".card-design__image a");
         const user = card.querySelector(".user-profile a");
 
-        if (!img || !user) return;
+        if (!pageLink || !user) continue;
 
-        const imageUrl = img.src;
         const username = user.innerText.trim().replace(/\s+/g, "-");
+        const designPageUrl = pageLink.href;
 
-        const parts = imageUrl.split("/");
+        // Fetch the design page HTML
+        const html = await fetch(designPageUrl).then(r => r.text());
+
+        // Parse HTML
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+
+        // Extract HD image
+        const hdImg = doc.querySelector(".image-frame--tall img");
+
+        if (!hdImg) continue;
+
+        const hdUrl = hdImg.src;
+
+        // Extract original filename
+        const parts = hdUrl.split("/");
         const originalName = parts[parts.length - 1];
 
         const finalName = `${username}/${originalName}`;
 
         downloads.push({
-            imageUrl,
+            imageUrl: hdUrl,
             filename: finalName
         });
-    });
+    }
 
     chrome.runtime.sendMessage({
         type: "batchDownload",
