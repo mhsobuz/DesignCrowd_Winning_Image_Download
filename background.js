@@ -1,17 +1,17 @@
-chrome.action.onClicked.addListener(async (tab) => {
-    await chrome.scripting.executeScript({
+chrome.action.onClicked.addListener((tab) => {
+    chrome.scripting.executeScript({
         target: { tabId: tab.id },
         files: ["content.js"]
     });
 });
 
-chrome.runtime.onMessage.addListener((msg, sender) => {
-    if (msg.type === "batchDownload") {
-        msg.items.forEach(item => {
-            chrome.downloads.download({
-                url: item.imageUrl,
-                filename: item.filename
-            });
+// Receive download request from content.js
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.type === "download_file") {
+        chrome.downloads.download({
+            url: msg.url,
+            filename: msg.filename,
+            conflictAction: "overwrite"
         });
     }
 });

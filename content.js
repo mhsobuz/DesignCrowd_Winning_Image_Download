@@ -1,93 +1,66 @@
-(async function () {
+async function fetchHTML(url) {
+    let res = await fetch(url);
+    return await res.text();
+}
 
-    async function fetchHtml(url) {
-        return await fetch(url).then(r => r.text());
+async function getHDImage(url) {
+    let html = await fetchHTML(url);
+    let doc = new DOMParser().parseFromString(html, "text/html");
+
+    let img = doc.querySelector(".image-frame--tall img, .card-design__image img");
+    if (!img) return null;
+
+    return img.src.replace("_thumbnail", "_image");
+}
+
+async function processPage(url, allImages) {
+    console.log("Processing:", url);
+
+    let html = await fetchHTML(url);
+    let doc = new DOMParser().parseFromString(html, "text/html");
+
+    let cards = doc.querySelectorAll(".card-design");
+
+    for (let card of cards) {
+        let a = card.querySelector(".card-design__image a");
+        if (!a) continue;
+
+        let designURL = a.href;
+        let hd = await getHDImage(designURL);
+        if (!hd) continue;
+
+        let userEl = card.querySelector(".user-profile__small-text a");
+        let username = userEl ? userEl.textContent.trim().replace(/\s+/g, "_") : "unknown";
+
+        if (!allImages[username]) allImages[username] = [];
+        if (!allImages[username].includes(hd)) allImages[username].push(hd);
     }
 
-    async function parseDesignCards(doc) {
-        const cards = doc.querySelectorAll(".card-design");
-        const parser = new DOMParser();
-        let results = [];
+    // go to next page
+    let next = doc.querySelector(".pagination-next a");
+    if (next) {
+        await processPage(next.href, allImages);
+    }
+}
 
-        for (const card of cards) {
-            const designLink = card.querySelector(".card-design__image a");
-            const userLink = card.querySelector(".user-profile a");
+async function startDownload() {
+    let all = {};
 
-            if (!designLink || !userLink) continue;
+    await processPage(window.location.href, all);
 
-            const username = userLink.innerText.trim().replace(/\s+/g, "-");
-            const designUrl = designLink.href;
+    for (let username in all) {
+        let list = all[username];
 
-            // Fetch design page for HD image
-            const designHtml = await fetchHtml(designUrl);
-            const doc2 = parser.parseFromString(designHtml, "text/html");
-
-            const fullImg = doc2.querySelector(".image-frame--tall img");
-            if (!fullImg) continue;
-
-            const imgUrl = fullImg.src;
-
-            results.push({
-                username: username,
-                imageUrl: imgUrl
+        for (let i = 0; i < list.length; i++) {
+            chrome.runtime.sendMessage({
+                type: "download_file",
+                url: list[i],
+                filename: `${username}/file_${i + 1}.jpg`
             });
         }
-
-        return results;
     }
 
-    // ===== Collect all pagination links =====
-    const paginationLinks = Array.from(document.querySelectorAll(".pagination li a"))
-        .map(a => a.href)
-        .filter(href => href.includes("contest/4107921")); // Optional: filter by contest
+    alert("Download started!");
+}
 
-    // Include current page as well
-    const currentPage = window.location.href;
-    if (!paginationLinks.includes(currentPage)) paginationLinks.unshift(currentPage);
-
-    let allDownloads = [];
-
-    for (const pageUrl of paginationLinks) {
-        console.log("Fetching page:", pageUrl);
-        const html = await fetchHtml(pageUrl);
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, "text/html");
-
-        const items = await parseDesignCards(doc);
-        allDownloads.push(...items);
-    }
-
-    // ===== Remove duplicates based on imageUrl =====
-    const uniqueDownloads = [];
-    const seenUrls = new Set();
-
-    for (const item of allDownloads) {
-        if (!seenUrls.has(item.imageUrl)) {
-            uniqueDownloads.push(item);
-            seenUrls.add(item.imageUrl);
-        }
-    }
-
-    // ===== Sequential filenames per username =====
-    const userCounters = {}; // { username: count }
-
-    const sequentialDownloads = uniqueDownloads.map(item => {
-        if (!userCounters[item.username]) userCounters[item.username] = 1;
-
-        const ext = item.imageUrl.split(".").pop().split(/\#|\?/)[0]; // get file extension
-        const filename = `${item.username}/file_${userCounters[item.username]}.${ext}`;
-
-        userCounters[item.username]++;
-
-        return {
-            imageUrl: item.imageUrl,
-            filename: filename
-        };
-    });
-
-    chrome.runtime.sendMessage({
-        type: "batchDownload",
-        items: sequentialDownloads
-    });
-
-})();
+startDownload();
