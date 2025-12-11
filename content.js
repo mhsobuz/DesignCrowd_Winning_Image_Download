@@ -1,32 +1,38 @@
 (function () {
-    // Image selector (from your HTML)
-    const img = document.querySelector(".card-design img");
-    if (!img) {
-        alert("Image not found!");
+    // Select all design cards
+    const cards = document.querySelectorAll(".card-design");
+
+    if (!cards.length) {
+        alert("No design cards found!");
         return;
     }
 
-    const imageUrl = img.src;
-    
-    // Extract original image filename
-    const urlParts = imageUrl.split("/");
-    const originalName = urlParts[urlParts.length - 1];
+    let downloads = [];
 
-    // Username selector (from your HTML)
-    const user = document.querySelector("h6.u-inline a");
-    if (!user) {
-        alert("Username not found!");
-        return;
-    }
+    cards.forEach(card => {
+        const img = card.querySelector(".card-design__image img");
+        const user = card.querySelector(".user-profile a");
 
-    const username = user.innerText.trim();
+        if (!img || !user) return;
 
-    // Final filename: username_originalFilename
-    const finalName = `${username}_${originalName}`;
+        const imageUrl = img.src;
+        const username = user.innerText.trim();
 
-    chrome.runtime.sendMessage({
-        type: "download",
-        imageUrl: imageUrl,
-        filename: finalName
+        const parts = imageUrl.split("/");
+        const originalName = parts[parts.length - 1];
+
+        const finalName = `${username}_${originalName}`;
+
+        downloads.push({
+            imageUrl,
+            filename: finalName
+        });
     });
+
+    // Send all image data to background.js
+    chrome.runtime.sendMessage({
+        type: "batchDownload",
+        items: downloads
+    });
+
 })();

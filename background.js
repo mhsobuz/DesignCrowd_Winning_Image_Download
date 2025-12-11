@@ -5,12 +5,13 @@ chrome.action.onClicked.addListener(async (tab) => {
     });
 });
 
-// Receive data from content script
 chrome.runtime.onMessage.addListener((msg, sender) => {
-    if (msg.type === "download") {
-        chrome.downloads.download({
-            url: msg.imageUrl,
-            filename: msg.filename
+    if (msg.type === "batchDownload") {
+        msg.items.forEach(item => {
+            chrome.downloads.download({
+                url: item.imageUrl,
+                filename: item.filename
+            });
         });
     }
 });
